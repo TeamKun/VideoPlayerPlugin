@@ -1,0 +1,5 @@
+name: VPlayerPlugin
+version: ${project.version}
+main: net.kunmc.lab.vplayerplugin.VPlayerPlugin
+api-version: 1.15
+authors: [Kamesuta]
