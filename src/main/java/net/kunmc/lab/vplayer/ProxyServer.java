@@ -14,21 +14,16 @@ import net.kunmc.lab.vplayer.server.network.PacketDispatcherServer;
 import net.kunmc.lab.vplayer.server.patch.VideoPatchRecieveEventServer;
 import net.kunmc.lab.vplayer.server.patch.VideoPatchSendEventServer;
 import net.kunmc.lab.vplayer.server.video.VDisplayManagerServer;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.entity.player.ServerPlayerEntity;
-import net.minecraft.world.dimension.DimensionType;
-import net.minecraftforge.event.entity.player.PlayerEvent;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
 import org.bukkit.Server;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerLoginEvent;
+import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitRunnable;
 
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Function;
@@ -40,6 +35,8 @@ public class ProxyServer implements Listener {
 
     private static Commodore commodore;
 
+    private static VDisplayManagerServer displayManager;
+
     public static Server getServer() {
         return server;
     }
@@ -49,10 +46,10 @@ public class ProxyServer implements Listener {
     }
 
     public static VDisplayManagerServer getDisplayManager() {
-        return VDisplayManagerServer.get(server.getWorld(DimensionType.OVERWORLD));
+        return displayManager;
     }
 
-    public void registerEvents(JavaPlugin plugin) {
+    public void registerEvents(Plugin plugin) {
         // Register ourselves for server and other game events we are interested in
         plugin.getServer().getPluginManager().registerEvents(this, plugin);
 
@@ -65,7 +62,7 @@ public class ProxyServer implements Listener {
         }.runTaskTimer(plugin, 0, 0);
 
         // Packet
-        PacketDispatcherServer.register();
+        PacketDispatcherServer.register(plugin);
     }
 
     public void onServerStart(JavaPlugin plugin) {
@@ -90,24 +87,22 @@ public class ProxyServer implements Listener {
         VDisplayManagerServer state = getDisplayManager();
         PacketContainer packet = new PacketContainer(VideoPatchOperation.SYNC, state.list().stream()
                 .map(p -> new VideoPatch(p.getUUID(), p.getQuad(), p.fetchState())).collect(Collectors.toList()));
-        PacketDispatcherServer.send(((ServerPlayerEntity) player).connection.getNetworkManager(), packet);
+        PacketDispatcherServer.send(player, packet);
     }
 
-    @SubscribeEvent
+    @EventHandler
     public void onServerPatchSend(VideoPatchSendEventServer event) {
         if (getServer() == null)
             return;
 
         PacketContainer packet = new PacketContainer(event.getOperation(), event.getPatches());
-        getServer().getPlayerList().getPlayers().stream()
-                .map(p -> p.connection)
-                .filter(Objects::nonNull)
-                .forEach(p -> PacketDispatcherServer.send(p.getNetworkManager(), packet));
+        getServer().getOnlinePlayers()
+                .forEach(p -> PacketDispatcherServer.send(p, packet));
     }
 
     private final Table<UUID, UUID, Double> durationTable = HashBasedTable.create();
 
-    @SubscribeEvent
+    @EventHandler
     public void onServerPatchReceive(VideoPatchRecieveEventServer event) {
         if (event.getOperation() == VideoPatchOperation.UPDATE) {
             VDisplayManagerServer state = getDisplayManager();
@@ -115,9 +110,9 @@ public class ProxyServer implements Listener {
             event.getPatches().forEach(e -> {
                 Optional.ofNullable(state.get(e.getId())).ifPresent(d -> {
                     UUID displayId = d.getUUID();
-                    UUID playerId = event.getPlayer().getGameProfile().getId();
+                    UUID playerId = event.getPlayer().getPlayerProfile().getId();
                     PlayState newState = e.getState();
-                    if (newState != null) {
+                    if (newState != null && playerId != null) {
                         float duration = newState.duration;
                         if (duration >= 0)
                             durationTable.put(displayId, playerId, (double) duration);

@@ -1,5 +1,21 @@
-name: VPlayerPlugin
+name: vplayer
 version: ${project.version}
-main: net.kunmc.lab.vplayerplugin.VPlayerPlugin
+main: net.kunmc.lab.vplayer.VideoPlayer
 api-version: 1.15
 authors: [Kamesuta]
+
+commands:
+  vdisplay:
+    permission: vdisplay.display
+  vplayer:
+    permission: vdisplay.player
+
+permissions:
+  vdisplay.*:
+    children:
+      vdisplay.display: true
+      vdisplay.player: true
+  vdisplay.display:
+    default: op
+  vdisplay.player:
+    default: op

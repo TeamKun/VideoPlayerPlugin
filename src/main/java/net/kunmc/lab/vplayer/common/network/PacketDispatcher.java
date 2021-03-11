@@ -1,61 +1,53 @@
 package net.kunmc.lab.vplayer.common.network;
 
-import com.google.common.base.Suppliers;
 import net.kunmc.lab.vplayer.VideoPlayer;
-import net.minecraft.util.ResourceLocation;
-import net.minecraftforge.fml.network.NetworkEvent;
-import net.minecraftforge.fml.network.NetworkRegistry;
-import net.minecraftforge.fml.network.simple.SimpleChannel;
+import org.bukkit.entity.Player;
+import org.bukkit.plugin.Plugin;
 
 import java.util.function.BiConsumer;
-import java.util.function.Predicate;
-import java.util.function.Supplier;
+import java.util.function.Function;
 
 public class PacketDispatcher {
 
     public static final String PROTOCOL_VERSION = "VP01";
-    public static final Predicate<String> VANILLA_OR_HANDSHAKE =
-            ((Predicate<String>) NetworkRegistry.ACCEPTVANILLA::equals).or(PROTOCOL_VERSION::equals);
 
-    public static final SimpleChannel channel = NetworkRegistry.ChannelBuilder
-            .named(new ResourceLocation(VideoPlayer.MODID, "patch"))
-            .clientAcceptedVersions(VANILLA_OR_HANDSHAKE)
-            .serverAcceptedVersions(PROTOCOL_VERSION::equals)
-            .networkProtocolVersion(() -> PROTOCOL_VERSION)
-            .simpleChannel();
+    public static final String channelId = VideoPlayer.MODID + ":patch";
+    public static final SimpleChannel<PacketContainer> channel = new SimpleChannel<>(channelId);
 
-    private static Supplier<Void> register = Suppliers.memoize(() -> {
-        PacketDispatcher.channel.registerMessage(
-                0,
-                PacketContainer.class,
+    public static class SimpleChannel<MSG> {
+        private final String channel;
+        private Plugin plugin;
+        private Function<MSG, byte[]> encoder;
+
+        public SimpleChannel(String channel) {
+            this.channel = channel;
+        }
+
+        public void registerMessage(Plugin pluginIn, Function<MSG, byte[]> encoderIn, Function<byte[], MSG> decoderIn, BiConsumer<MSG, Player> messageConsumerIn) {
+            plugin = pluginIn;
+            encoder = encoderIn;
+
+            plugin.getServer().getMessenger().registerOutgoingPluginChannel(plugin, channel);
+            plugin.getServer().getMessenger().registerIncomingPluginChannel(plugin, channel, (channelIn, playerIn, messageIn) -> {
+                if (!channel.equals(channelIn))
+                    return;
+                MSG msg = decoderIn.apply(messageIn);
+                messageConsumerIn.accept(msg, playerIn);
+            });
+        }
+
+        public void sendTo(MSG messageIn, Player playerIn) {
+            playerIn.sendPluginMessage(plugin, channel, encoder.apply(messageIn));
+        }
+    }
+
+    public static void registerServer(Plugin plugin, BiConsumer<PacketContainer, Player> handler) {
+        channel.registerMessage(
+                plugin,
                 PacketContainer::encode,
                 PacketContainer::decode,
-                PacketDispatcher::handle
+                handler
         );
-        return null;
-    });
-
-    private static BiConsumer<PacketContainer, Supplier<NetworkEvent.Context>> clientHandler;
-    private static BiConsumer<PacketContainer, Supplier<NetworkEvent.Context>> serverHandler;
-
-    public static void registerClient(BiConsumer<PacketContainer, Supplier<NetworkEvent.Context>> handler) {
-        register.get();
-        clientHandler = handler;
-    }
-
-    public static void registerServer(BiConsumer<PacketContainer, Supplier<NetworkEvent.Context>> handler) {
-        register.get();
-        serverHandler = handler;
-    }
-
-    private static void handle(PacketContainer message, Supplier<NetworkEvent.Context> ctx) {
-        if (ctx.get().getDirection().getReceptionSide().isClient()) {
-            if (clientHandler != null)
-                clientHandler.accept(message, ctx);
-        } else {
-            if (serverHandler != null)
-                serverHandler.accept(message, ctx);
-        }
     }
 
 }

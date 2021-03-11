@@ -2,6 +2,7 @@ package net.kunmc.lab.vplayer.server.video;
 
 import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonWriter;
+import net.kunmc.lab.vplayer.ProxyServer;
 import net.kunmc.lab.vplayer.common.data.DataSerializer;
 import net.kunmc.lab.vplayer.common.model.DisplayManagaer;
 import net.kunmc.lab.vplayer.common.model.PlayState;
@@ -11,19 +12,10 @@ import net.kunmc.lab.vplayer.common.patch.VideoPatchOperation;
 import net.kunmc.lab.vplayer.common.video.VDisplay;
 import net.kunmc.lab.vplayer.common.video.VDisplayManager;
 import net.kunmc.lab.vplayer.server.patch.VideoPatchSendEventServer;
-import net.minecraft.nbt.CompoundNBT;
-import net.minecraft.nbt.ListNBT;
-import net.minecraft.world.server.ServerWorld;
-import net.minecraft.world.storage.DimensionSavedDataManager;
-import net.minecraft.world.storage.WorldSavedData;
-import net.minecraftforge.common.MinecraftForge;
-import net.minecraftforge.common.util.Constants;
-import org.bukkit.persistence.PersistentDataType;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.*;
-import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -34,8 +26,13 @@ import static net.kunmc.lab.vplayer.VideoPlayer.MODID;
 public class VDisplayManagerServer implements DisplayManagaer<String, VDisplay> {
     private static final String DATA_NAME = MODID + "_displays";
 
+    private final File nbt;
     private final Map<String, UUID> displayNames = new ConcurrentHashMap<>();
     private final VDisplayManager manager = new VDisplayManager();
+
+    public VDisplayManagerServer(File file) {
+        nbt = file;
+    }
 
     private static class DataModel {
         public List<DisplayModel> displays = new ArrayList<>();
@@ -46,7 +43,7 @@ public class VDisplayManagerServer implements DisplayManagaer<String, VDisplay> 
         }
     }
 
-    public void read(File nbt) {
+    public void read() {
         clear();
 
         if (!nbt.exists())
@@ -79,7 +76,7 @@ public class VDisplayManagerServer implements DisplayManagaer<String, VDisplay> 
         });
     }
 
-    public void write(File nbt) {
+    public void write() {
         DataModel dataModel = new DataModel();
         List<DataModel.DisplayModel> list = dataModel.displays;
         displayNames.forEach((name, id) -> {
@@ -98,7 +95,7 @@ public class VDisplayManagerServer implements DisplayManagaer<String, VDisplay> 
     }
 
     private void sendToClient(VideoPatchOperation operation, List<VideoPatch> patches) {
-        MinecraftForge.EVENT_BUS.post(new VideoPatchSendEventServer(operation, patches));
+        ProxyServer.getServer().getPluginManager().callEvent(new VideoPatchSendEventServer(operation, patches));
     }
 
     private void deleteDisplay(UUID e) {
@@ -176,9 +173,7 @@ public class VDisplayManagerServer implements DisplayManagaer<String, VDisplay> 
     }
 
     // WorldSavedData methods
-    public static VDisplayManagerServer get(ServerWorld world) {
-        // The IS_GLOBAL constant is there for clarity, and should be simplified into the right branch.
-        DimensionSavedDataManager storage = world.getSavedData();
-        return storage.getOrCreate(() -> new VDisplayManagerServer(DATA_NAME), DATA_NAME);
+    public static VDisplayManagerServer get(File dataFolder) {
+        return new VDisplayManagerServer(new File(dataFolder, DATA_NAME + ".json"));
     }
 }
