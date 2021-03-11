@@ -2,6 +2,8 @@ package net.kunmc.lab.vplayer;
 
 import com.google.common.collect.HashBasedTable;
 import com.google.common.collect.Table;
+import me.lucko.commodore.Commodore;
+import me.lucko.commodore.CommodoreProvider;
 import net.kunmc.lab.vplayer.common.model.PlayState;
 import net.kunmc.lab.vplayer.common.network.PacketContainer;
 import net.kunmc.lab.vplayer.common.patch.VideoPatch;
@@ -14,17 +16,16 @@ import net.kunmc.lab.vplayer.server.patch.VideoPatchSendEventServer;
 import net.kunmc.lab.vplayer.server.video.VDisplayManagerServer;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.entity.player.ServerPlayerEntity;
-import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.dimension.DimensionType;
-import net.minecraftforge.common.MinecraftForge;
-import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.event.entity.player.PlayerEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.event.server.FMLServerStartingEvent;
-import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 import org.bukkit.Server;
-import org.bukkit.plugin.Plugin;
+import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+import org.bukkit.event.player.PlayerLoginEvent;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.scheduler.BukkitRunnable;
 
 import java.util.Map;
 import java.util.Objects;
@@ -33,46 +34,59 @@ import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-public class ProxyServer {
+public class ProxyServer implements Listener {
 
     private static Server server;
 
+    private static Commodore commodore;
+
     public static Server getServer() {
         return server;
+    }
+
+    public static Commodore getCommodore() {
+        return commodore;
     }
 
     public static VDisplayManagerServer getDisplayManager() {
         return VDisplayManagerServer.get(server.getWorld(DimensionType.OVERWORLD));
     }
 
-    public void registerEvents() {
-        // Register the doClientStuff method for modloading
-        FMLJavaModLoadingContext.get().getModEventBus().register(this);
-
+    public void registerEvents(JavaPlugin plugin) {
         // Register ourselves for server and other game events we are interested in
-        MinecraftForge.EVENT_BUS.register(this);
+        plugin.getServer().getPluginManager().registerEvents(this, plugin);
+
+        // Tick
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                onTick();
+            }
+        }.runTaskTimer(plugin, 0, 0);
 
         // Packet
         PacketDispatcherServer.register();
     }
 
-    @SubscribeEvent
     public void onServerStart(JavaPlugin plugin) {
         server = plugin.getServer();
 
-        VPlayerCommand.register(event.getCommandDispatcher());
+        // check if brigadier is supported
+        if (CommodoreProvider.isSupported()) {
+            // get a commodore instance
+            commodore = CommodoreProvider.getCommodore(plugin);
+            // register your completions.
+            VPlayerCommand.register(plugin::getCommand);
+        }
     }
 
-    @SubscribeEvent
-    public void onTick(TickEvent.ServerTickEvent event) {
+    public void onTick() {
         Timer.tick();
     }
 
-    @SubscribeEvent
-    public void onLogin(PlayerEvent.PlayerLoggedInEvent event) {
-        PlayerEntity player = event.getPlayer();
-        if (!(player instanceof ServerPlayerEntity))
-            return;
+    @EventHandler
+    public void onLogin(PlayerLoginEvent event) {
+        Player player = event.getPlayer();
         VDisplayManagerServer state = getDisplayManager();
         PacketContainer packet = new PacketContainer(VideoPatchOperation.SYNC, state.list().stream()
                 .map(p -> new VideoPatch(p.getUUID(), p.getQuad(), p.fetchState())).collect(Collectors.toList()));

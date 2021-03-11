@@ -25,8 +25,8 @@ public class ProxyClient extends ProxyServer {
     private final VDisplayManagerClient manager = new VDisplayManagerClient();
 
     @Override
-    public void registerEvents() {
-        super.registerEvents();
+    public void registerEvents(VideoPlayer videoPlayer) {
+        super.registerEvents(videoPlayer);
 
         // Packet
         PacketDispatcherClient.register();

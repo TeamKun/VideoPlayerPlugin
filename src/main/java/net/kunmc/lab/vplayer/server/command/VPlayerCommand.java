@@ -2,76 +2,77 @@ package net.kunmc.lab.vplayer.server.command;
 
 import com.google.common.base.Strings;
 import com.mojang.brigadier.Command;
-import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.BoolArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
+import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.builder.RequiredArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import net.kunmc.lab.vplayer.ProxyServer;
 import net.kunmc.lab.vplayer.common.model.Display;
 import net.kunmc.lab.vplayer.common.model.Quad;
+import net.kunmc.lab.vplayer.common.util.VUtils;
 import net.kunmc.lab.vplayer.common.video.VDisplay;
 import net.kunmc.lab.vplayer.server.video.VDisplayManagerServer;
-import net.minecraft.command.CommandException;
-import net.minecraft.command.CommandSource;
-import net.minecraft.command.Commands;
-import net.minecraft.command.arguments.ILocationArgument;
-import net.minecraft.command.arguments.Vec3Argument;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.util.text.ITextComponent;
-import net.minecraft.util.text.StringTextComponent;
-import net.minecraft.util.text.TextComponentUtils;
-import net.minecraft.util.text.TextFormatting;
-import net.minecraft.util.text.event.ClickEvent;
-import net.minecraft.util.text.event.HoverEvent;
-import net.minecraft.world.dimension.DimensionType;
-import org.bukkit.plugin.java.JavaPlugin;
+import net.md_5.bungee.api.ChatColor;
+import net.md_5.bungee.api.chat.BaseComponent;
+import net.md_5.bungee.api.chat.ClickEvent;
+import net.md_5.bungee.api.chat.ComponentBuilder;
+import net.md_5.bungee.api.chat.HoverEvent;
+import org.bukkit.Location;
+import org.bukkit.World;
+import org.bukkit.command.BlockCommandSender;
+import org.bukkit.command.CommandException;
+import org.bukkit.command.CommandSender;
+import org.bukkit.command.PluginCommand;
+import org.bukkit.entity.Entity;
+import org.bukkit.util.BlockVector;
+import org.bukkit.util.Vector;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Optional;
+import java.util.function.Function;
 
 public class VPlayerCommand {
-    public static void register(JavaPlugin plugin) {
-        dispatcher.register(
-                Commands.literal("vdisplay")
-                        .then(Commands.literal("list")
+    public static void register(Function<String, PluginCommand> commandSupplier) {
+        ProxyServer.getCommodore().register(commandSupplier.apply("vdisplay"),
+                LiteralArgumentBuilder.literal("vdisplay")
+                        .then(LiteralArgumentBuilder.literal("list")
                                 .executes(ctx -> {
                                     VDisplayManagerServer state = ProxyServer.getDisplayManager();
 
-                                    ITextComponent component = TextComponentUtils.makeList(
-                                            state.listNames(),
-                                            msg -> {
-                                                StringTextComponent text = new StringTextComponent(msg);
+                                    BaseComponent[] component = state.listNames().stream()
+                                            .map(msg -> {
+                                                ComponentBuilder text = new ComponentBuilder(msg);
                                                 Optional.ofNullable(state.get(msg))
                                                         .map(Display::getQuad)
-                                                        .ifPresent(e -> text.applyTextStyle(s -> {
-                                                            Vec3d vec = e.vertices[0];
-                                                            s.setHoverEvent(new HoverEvent(
+                                                        .ifPresent(e -> {
+                                                            Vector vec = e.vertices[0];
+                                                            text.event(new HoverEvent(
                                                                     HoverEvent.Action.SHOW_TEXT,
-                                                                    new StringTextComponent(String.format("クリックでTP: %s(x:%.1f, y:%.1f, z:%.1f)", msg, vec.x, vec.y, vec.z))
+                                                                    new ComponentBuilder(String.format("クリックでTP: %s(x:%.1f, y:%.1f, z:%.1f)", msg, vec.getX(), vec.getY(), vec.getZ())).create()
                                                             ));
-                                                            s.setClickEvent(new ClickEvent(
+                                                            text.event(new ClickEvent(
                                                                     ClickEvent.Action.RUN_COMMAND,
-                                                                    String.format("/tp %f %f %f", vec.x, vec.y, vec.z)
+                                                                    String.format("/tp %f %f %f", vec.getX(), vec.getY(), vec.getZ())
                                                             ));
-                                                        }));
-                                                return text;
-                                            }
-                                    );
+                                                        });
+                                                return text.create();
+                                            })
+                                            .collect(VUtils.joining(new ComponentBuilder(", ").create()));
 
-                                    ctx.getSource().sendFeedback(
-                                            new StringTextComponent("").applyTextStyle(TextFormatting.GREEN)
-                                                    .appendSibling(new StringTextComponent("[かめすたMod] ").applyTextStyle(TextFormatting.LIGHT_PURPLE))
-                                                    .appendSibling(component),
-                                            true);
+                                    CommandSender sender = VUtils.getSender(ctx.getSource());
+                                    sender.sendMessage(
+                                            new ComponentBuilder().color(ChatColor.GREEN)
+                                                    .append(new ComponentBuilder("[かめすたMod] ").color(ChatColor.LIGHT_PURPLE).create())
+                                                    .append(component)
+                                                    .create()
+                                    );
 
                                     return Command.SINGLE_SUCCESS;
                                 })
                         )
-                        .then(Commands.literal("create")
+                        .then(LiteralArgumentBuilder.literal("create")
                                 .then(name()
                                         .executes(ctx -> {
                                             String name = StringArgumentType.getString(ctx, "name");
@@ -79,13 +80,15 @@ public class VPlayerCommand {
                                             VDisplayManagerServer state = ProxyServer.getDisplayManager();
                                             VDisplay display = state.create(name);
 
-                                            state.setQuad(name, getQuad(ctx, display.getQuad(), ctx.getSource().getPos(), null, true, .1));
+                                            Location location = VUtils.getLocation(VUtils.getSender(ctx.getSource()));
+                                            if (location != null)
+                                                state.setQuad(name, getQuad(ctx, display.getQuad(), location.toVector(), null, true, .1));
 
                                             return Command.SINGLE_SUCCESS;
                                         })
                                 )
                         )
-                        .then(Commands.literal("destroy")
+                        .then(LiteralArgumentBuilder.literal("destroy")
                                 .then(name()
                                         .executes(ctx -> {
                                             String name = StringArgumentType.getString(ctx, "name");
@@ -98,9 +101,9 @@ public class VPlayerCommand {
                                 )
 
                         )
-                        .then(Commands.literal("position")
+                        .then(LiteralArgumentBuilder.literal("position")
                                 .then(name()
-                                        .then(Commands.literal("pos1")
+                                        .then(LiteralArgumentBuilder.literal("pos1")
                                                 .executes(ctx -> {
                                                     String name = StringArgumentType.getString(ctx, "name");
 
@@ -108,13 +111,15 @@ public class VPlayerCommand {
 
                                                     VDisplay display = state.get(name);
                                                     if (display == null)
-                                                        throw new CommandException(new StringTextComponent("ディスプレイが見つかりません。"));
+                                                        throw new CommandException("ディスプレイが見つかりません。");
 
-                                                    state.setQuad(name, getQuad(ctx, display.getQuad(), ctx.getSource().getPos(), null, true, .1));
+                                                    Location location = VUtils.getLocation(VUtils.getSender(ctx.getSource()));
+                                                    if (location != null)
+                                                        state.setQuad(name, getQuad(ctx, display.getQuad(), location.toVector(), null, true, .1));
 
                                                     return Command.SINGLE_SUCCESS;
                                                 })
-                                                .then(Commands.argument("pos", Vec3Argument.vec3())
+                                                .then(RequiredArgumentBuilder.argument("pos", Vec3Argument.vec3())
                                                         .executes(ctx -> {
                                                             String name = StringArgumentType.getString(ctx, "name");
                                                             ILocationArgument pos = Vec3Argument.getLocation(ctx, "pos");
@@ -123,15 +128,17 @@ public class VPlayerCommand {
 
                                                             VDisplay display = state.get(name);
                                                             if (display == null)
-                                                                throw new CommandException(new StringTextComponent("ディスプレイが見つかりません。"));
+                                                                throw new CommandException("ディスプレイが見つかりません。");
 
-                                                            state.setQuad(name, getQuad(ctx, display.getQuad(), pos.getPosition(ctx.getSource()), null, false, .1));
+                                                            Location eyeLocation = VUtils.getEyeLocation(VUtils.getSender(ctx.getSource()));
+                                                            if (eyeLocation != null)
+                                                                state.setQuad(name, getQuad(ctx, display.getQuad(), pos.getPosition(eyeLocation), null, false, .1));
 
                                                             return Command.SINGLE_SUCCESS;
                                                         })
                                                 )
                                         )
-                                        .then(Commands.literal("pos2")
+                                        .then(LiteralArgumentBuilder.literal("pos2")
                                                 .executes(ctx -> {
                                                     String name = StringArgumentType.getString(ctx, "name");
 
@@ -139,13 +146,15 @@ public class VPlayerCommand {
 
                                                     VDisplay display = state.get(name);
                                                     if (display == null)
-                                                        throw new CommandException(new StringTextComponent("ディスプレイが見つかりません。"));
+                                                        throw new CommandException("ディスプレイが見つかりません。");
 
-                                                    state.setQuad(name, getQuad(ctx, display.getQuad(), null, ctx.getSource().getPos(), true, .1));
+                                                    Location location = VUtils.getLocation(VUtils.getSender(ctx.getSource()));
+                                                    if (location != null)
+                                                        state.setQuad(name, getQuad(ctx, display.getQuad(), null, location.toVector(), true, .1));
 
                                                     return Command.SINGLE_SUCCESS;
                                                 })
-                                                .then(Commands.argument("pos", Vec3Argument.vec3())
+                                                .then(RequiredArgumentBuilder.argument("pos", Vec3Argument.vec3())
                                                         .executes(ctx -> {
                                                             String name = StringArgumentType.getString(ctx, "name");
                                                             ILocationArgument pos = Vec3Argument.getLocation(ctx, "pos");
@@ -154,9 +163,11 @@ public class VPlayerCommand {
 
                                                             VDisplay display = state.get(name);
                                                             if (display == null)
-                                                                throw new CommandException(new StringTextComponent("ディスプレイが見つかりません。"));
+                                                                throw new CommandException("ディスプレイが見つかりません。");
 
-                                                            state.setQuad(name, getQuad(ctx, display.getQuad(), null, pos.getPosition(ctx.getSource()), false, .1));
+                                                            Location eyeLocation = VUtils.getEyeLocation(VUtils.getSender(ctx.getSource()));
+                                                            if (eyeLocation != null)
+                                                                state.setQuad(name, getQuad(ctx, display.getQuad(), null, pos.getPosition(eyeLocation), false, .1));
 
                                                             return Command.SINGLE_SUCCESS;
                                                         })
@@ -166,10 +177,10 @@ public class VPlayerCommand {
 
                         )
         );
-        dispatcher.register(
-                Commands.literal("net/kunmc/lab/vplayer")
+        ProxyServer.getCommodore().register(commandSupplier.apply("vplayer"),
+                LiteralArgumentBuilder.literal("vplayer")
                         .then(name()
-                                .then(Commands.literal("video")
+                                .then(LiteralArgumentBuilder.literal("video")
                                         .executes(ctx -> {
                                             String name = StringArgumentType.getString(ctx, "name");
 
@@ -177,17 +188,19 @@ public class VPlayerCommand {
 
                                             VDisplay display = state.get(name);
                                             if (display == null)
-                                                throw new CommandException(new StringTextComponent("ディスプレイが見つかりません。"));
+                                                throw new CommandException("ディスプレイが見つかりません。");
 
-                                            ctx.getSource().sendFeedback(
-                                                    new StringTextComponent("").applyTextStyle(TextFormatting.GREEN)
-                                                            .appendSibling(new StringTextComponent("[かめすたMod] ").applyTextStyle(TextFormatting.LIGHT_PURPLE))
-                                                            .appendSibling(new StringTextComponent(Strings.nullToEmpty(display.fetchState().file))),
-                                                    true);
+                                            CommandSender sender = VUtils.getSender(ctx.getSource());
+                                            sender.sendMessage(
+                                                    new ComponentBuilder().color(ChatColor.GREEN)
+                                                            .append(new ComponentBuilder("[かめすたMod] ").color(ChatColor.LIGHT_PURPLE).create())
+                                                            .append(new ComponentBuilder(Strings.nullToEmpty(display.fetchState().file)).create())
+                                                            .create()
+                                            );
 
                                             return Command.SINGLE_SUCCESS;
                                         })
-                                        .then(Commands.argument("url", StringArgumentType.string())
+                                        .then(RequiredArgumentBuilder.argument("url", StringArgumentType.string())
                                                 .executes(ctx -> {
                                                     String name = StringArgumentType.getString(ctx, "name");
                                                     String url = StringArgumentType.getString(ctx, "url");
@@ -204,7 +217,7 @@ public class VPlayerCommand {
                                                 })
                                         )
                                 )
-                                .then(Commands.literal("play")
+                                .then(LiteralArgumentBuilder.literal("play")
                                         .executes(ctx -> {
                                             String name = StringArgumentType.getString(ctx, "name");
 
@@ -217,7 +230,7 @@ public class VPlayerCommand {
 
                                             return Command.SINGLE_SUCCESS;
                                         })
-                                        .then(Commands.argument("url", StringArgumentType.string())
+                                        .then(RequiredArgumentBuilder.argument("url", StringArgumentType.string())
                                                 .executes(ctx -> {
                                                     String name = StringArgumentType.getString(ctx, "name");
                                                     String url = StringArgumentType.getString(ctx, "url");
@@ -234,7 +247,7 @@ public class VPlayerCommand {
                                                 })
                                         )
                                 )
-                                .then(Commands.literal("pause")
+                                .then(LiteralArgumentBuilder.literal("pause")
                                         .executes(ctx -> {
                                             String name = StringArgumentType.getString(ctx, "name");
 
@@ -246,7 +259,7 @@ public class VPlayerCommand {
 
                                             return Command.SINGLE_SUCCESS;
                                         })
-                                        .then(Commands.argument("paused", BoolArgumentType.bool())
+                                        .then(RequiredArgumentBuilder.argument("paused", BoolArgumentType.bool())
                                                 .executes(ctx -> {
                                                     String name = StringArgumentType.getString(ctx, "name");
                                                     boolean paused = BoolArgumentType.getBool(ctx, "paused");
@@ -261,7 +274,7 @@ public class VPlayerCommand {
                                                 })
                                         )
                                 )
-                                .then(Commands.literal("stop")
+                                .then(LiteralArgumentBuilder.literal("stop")
                                         .executes(ctx -> {
                                             String name = StringArgumentType.getString(ctx, "name");
 
@@ -275,8 +288,8 @@ public class VPlayerCommand {
                                             return Command.SINGLE_SUCCESS;
                                         })
                                 )
-                                .then(Commands.literal("seek")
-                                        .then(Commands.argument("time", VTimeArgumentType.timeArg())
+                                .then(LiteralArgumentBuilder.literal("seek")
+                                        .then(RequiredArgumentBuilder.argument("time", VTimeArgumentType.timeArg())
                                                 .executes(ctx -> {
                                                     String name = StringArgumentType.getString(ctx, "name");
                                                     VTimeArgumentType.VTime time = VTimeArgumentType.getTime(ctx, "time");
@@ -284,7 +297,7 @@ public class VPlayerCommand {
                                                     VDisplayManagerServer state = ProxyServer.getDisplayManager();
                                                     state.dispatchState(name, s -> {
                                                         if (s.duration > 0)
-                                                            s.time = MathHelper.clamp(MathHelper.clamp(s.time, 0, s.duration) + time.getTime(s.duration), 0, s.duration);
+                                                            s.time = VUtils.clamp(s.time, 0, s.duration) + VUtils.clamp(time.getTime(s.duration), 0, s.duration);
                                                         else
                                                             s.time += time.getTime(s.duration);
                                                         return s;
@@ -294,8 +307,8 @@ public class VPlayerCommand {
                                                 })
                                         )
                                 )
-                                .then(Commands.literal("time")
-                                        .then(Commands.argument("time", VTimeArgumentType.timeArg())
+                                .then(LiteralArgumentBuilder.literal("time")
+                                        .then(RequiredArgumentBuilder.argument("time", VTimeArgumentType.timeArg())
                                                 .executes(ctx -> {
                                                     String name = StringArgumentType.getString(ctx, "name");
                                                     VTimeArgumentType.VTime time = VTimeArgumentType.getTime(ctx, "time");
@@ -315,17 +328,25 @@ public class VPlayerCommand {
     }
 
     @Nonnull
-    public static Quad getQuad(CommandContext<CommandSource> context, @Nullable Quad prev, @Nullable Vec3d pos1, @Nullable Vec3d pos2, boolean align, double padding) {
-        DimensionType dimension = Optional.ofNullable(prev)
+    public static Quad getQuad(CommandContext<Object> context, @Nullable Quad prev, @Nullable Vector pos1, @Nullable Vector pos2, boolean align, double padding) {
+        CommandSender sender = VUtils.getSender(context.getSource());
+
+        Location location = (sender instanceof Entity)
+                ? ((Entity) sender).getLocation()
+                : (sender instanceof BlockCommandSender)
+                ? ((BlockCommandSender) sender).getBlock().getLocation()
+                : null;
+
+        World.Environment dimension = Optional.ofNullable(prev)
                 .map(e -> e.dimension)
                 .orElseGet(() ->
-                        Optional.ofNullable(context.getSource().getEntity())
-                                .map(e -> e.dimension)
-                                .orElse(DimensionType.OVERWORLD)
+                        Optional.ofNullable(location)
+                                .map(e -> e.getWorld().getEnvironment())
+                                .orElse(World.Environment.NORMAL)
                 );
 
         if (pos1 == null && pos2 == null)
-            pos1 = context.getSource().getPos();
+            pos1 = Optional.ofNullable(location).map(Location::toVector).orElseGet(Vector::new);
 
         if (prev != null) {
             if (pos1 == null)
@@ -334,49 +355,49 @@ public class VPlayerCommand {
                 pos2 = prev.vertices[2];
         } else {
             if (pos1 == null)
-                pos1 = pos2.subtract(16, -9, 0);
+                pos1 = pos2.subtract(new Vector(16, -9, 0));
             else if (pos2 == null)
-                pos2 = pos1.add(16, -9, 0);
+                pos2 = pos1.add(new Vector(16, -9, 0));
         }
 
         double offset = .01;
         if (align) {
-            double p1x = pos1.x < pos2.x ? Math.floor(pos1.x) + padding : Math.ceil(pos1.x) - padding;
-            double p2x = pos1.x > pos2.x ? Math.floor(pos2.x) + padding : Math.ceil(pos2.x) - padding;
-            double p1y = pos1.y < pos2.y ? Math.floor(pos1.y) + padding : Math.ceil(pos1.y) - padding;
-            double p2y = pos1.y > pos2.y ? Math.floor(pos2.y) + padding : Math.ceil(pos2.y) - padding;
-            double p1z = pos1.z < pos2.z ? Math.floor(pos1.z) + padding : Math.ceil(pos1.z) - padding;
-            double p2z = pos1.z > pos2.z ? Math.floor(pos2.z) + padding : Math.ceil(pos2.z) - padding;
+            double p1x = pos1.getX() < pos2.getX() ? Math.floor(pos1.getX()) + padding : Math.ceil(pos1.getX()) - padding;
+            double p2x = pos1.getX() > pos2.getX() ? Math.floor(pos2.getX()) + padding : Math.ceil(pos2.getX()) - padding;
+            double p1y = pos1.getY() < pos2.getY() ? Math.floor(pos1.getY()) + padding : Math.ceil(pos1.getY()) - padding;
+            double p2y = pos1.getY() > pos2.getY() ? Math.floor(pos2.getY()) + padding : Math.ceil(pos2.getY()) - padding;
+            double p1z = pos1.getZ() < pos2.getZ() ? Math.floor(pos1.getZ()) + padding : Math.ceil(pos1.getZ()) - padding;
+            double p2z = pos1.getZ() > pos2.getZ() ? Math.floor(pos2.getZ()) + padding : Math.ceil(pos2.getZ()) - padding;
 
-            BlockPos b1 = new BlockPos(pos1);
-            BlockPos b2 = new BlockPos(pos2);
+            BlockVector b1 = pos1.toBlockVector();
+            BlockVector b2 = pos2.toBlockVector();
             if (b1.getX() == b2.getX()) {
-                if (pos1.z > pos2.z)
+                if (pos1.getZ() > pos2.getZ())
                     p1x = p2x = b1.getX() + offset;
                 else
                     p1x = p2x = b1.getX() + (1 - offset);
             } else if (b1.getZ() == b2.getZ()) {
-                if (pos1.x < pos2.x)
+                if (pos1.getX() < pos2.getX())
                     p1z = p2z = b1.getZ() + offset;
                 else
                     p1z = p2z = b1.getZ() + (1 - offset);
             }
 
-            pos1 = new Vec3d(p1x, p1y, p1z);
-            pos2 = new Vec3d(p2x, p2y, p2z);
+            pos1 = new Vector(p1x, p1y, p1z);
+            pos2 = new Vector(p2x, p2y, p2z);
         }
 
         return new Quad(
                 dimension,
-                new Vec3d(pos1.x, pos1.y, pos1.z),  // left top
-                new Vec3d(pos1.x, pos2.y, pos1.z),  // left bottom
-                new Vec3d(pos2.x, pos2.y, pos2.z),  // right bottom
-                new Vec3d(pos2.x, pos1.y, pos2.z)   // right top
+                new Vector(pos1.getX(), pos1.getY(), pos1.getZ()),  // left top
+                new Vector(pos1.getX(), pos2.getY(), pos1.getZ()),  // left bottom
+                new Vector(pos2.getX(), pos2.getY(), pos2.getZ()),  // right bottom
+                new Vector(pos2.getX(), pos1.getY(), pos2.getZ())   // right top
         );
     }
 
-    public static RequiredArgumentBuilder<CommandSource, String> name() {
-        return Commands.argument("name", StringArgumentType.word())
+    public static RequiredArgumentBuilder<Object, String> name() {
+        return RequiredArgumentBuilder.argument("name", StringArgumentType.word())
                 .suggests((ctx, builder) -> {
                     VDisplayManagerServer state = ProxyServer.getDisplayManager();
 

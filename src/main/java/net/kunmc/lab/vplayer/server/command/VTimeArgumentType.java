@@ -1,5 +1,6 @@
 package net.kunmc.lab.vplayer.server.command;
 
+import com.mojang.brigadier.LiteralMessage;
 import com.mojang.brigadier.StringReader;
 import com.mojang.brigadier.arguments.ArgumentType;
 import com.mojang.brigadier.context.CommandContext;
@@ -8,20 +9,15 @@ import com.mojang.brigadier.exceptions.DynamicCommandExceptionType;
 import com.mojang.brigadier.exceptions.SimpleCommandExceptionType;
 import com.mojang.brigadier.suggestion.Suggestions;
 import com.mojang.brigadier.suggestion.SuggestionsBuilder;
-import it.unimi.dsi.fastutil.objects.Object2FloatMap;
-import it.unimi.dsi.fastutil.objects.Object2FloatOpenHashMap;
-import net.minecraft.command.ISuggestionProvider;
-import net.minecraft.util.text.TranslationTextComponent;
 
-import java.util.Arrays;
-import java.util.Collection;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 
 public class VTimeArgumentType implements ArgumentType<VTimeArgumentType.VTime> {
     private static final Collection<String> unitDefaults = Arrays.asList("0d", "0s", "0t", "0");
-    private static final SimpleCommandExceptionType exceptionInvalidUnit = new SimpleCommandExceptionType(new TranslationTextComponent("argument.time.invalid_unit"));
-    private static final DynamicCommandExceptionType exceptionTickCount = new DynamicCommandExceptionType(count -> new TranslationTextComponent("argument.time.invalid_tick_count", count));
-    private static final Object2FloatMap<String> units = new Object2FloatOpenHashMap<>();
+    private static final SimpleCommandExceptionType exceptionInvalidUnit = new SimpleCommandExceptionType(new LiteralMessage("単位が不正です"));
+    private static final DynamicCommandExceptionType exceptionTickCount = new DynamicCommandExceptionType(count -> new LiteralMessage(String.format("%s は範囲外の値です", count)));
+    private static final Map<String, Float> units = new HashMap<>();
 
     public static VTimeArgumentType timeArg() {
         return new VTimeArgumentType();
@@ -42,7 +38,7 @@ public class VTimeArgumentType implements ArgumentType<VTimeArgumentType.VTime> 
             float sec = 0;
             while (true) {
                 String s = text.readUnquotedString();
-                float i = units.getOrDefault(s, 0);
+                float i = units.getOrDefault(s, 0f);
                 if (i == 0)
                     throw exceptionInvalidUnit.create();
 
@@ -67,7 +63,7 @@ public class VTimeArgumentType implements ArgumentType<VTimeArgumentType.VTime> 
             return sb.buildFuture();
         }
 
-        return ISuggestionProvider.suggest(units.keySet(), sb.createOffset(sb.getStart() + stringreader.getCursor()));
+        return suggest(units.keySet(), sb.createOffset(sb.getStart() + stringreader.getCursor()));
     }
 
     public Collection<String> getExamples() {
@@ -75,11 +71,11 @@ public class VTimeArgumentType implements ArgumentType<VTimeArgumentType.VTime> 
     }
 
     static {
-        units.put("h", 60 * 60);
-        units.put("m", 60);
-        units.put("s", 1);
-        units.put("%", 0);
-        units.put("", 1);
+        units.put("h", 60f * 60f);
+        units.put("m", 60f);
+        units.put("s", 1f);
+        units.put("%", 0f);
+        units.put("", 1f);
     }
 
     public static class VTime {
@@ -104,5 +100,17 @@ public class VTimeArgumentType implements ArgumentType<VTimeArgumentType.VTime> 
     public enum VTimeType {
         SECONDS,
         PERCENT,
+    }
+
+    private static CompletableFuture<Suggestions> suggest(Iterable<String> strings, SuggestionsBuilder builder) {
+        String s = builder.getRemaining().toLowerCase(Locale.ROOT);
+
+        for (String s1 : strings) {
+            if (s1.toLowerCase(Locale.ROOT).startsWith(s)) {
+                builder.suggest(s1);
+            }
+        }
+
+        return builder.buildFuture();
     }
 }
