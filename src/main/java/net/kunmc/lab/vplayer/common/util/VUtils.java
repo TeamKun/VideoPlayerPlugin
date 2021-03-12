@@ -1,6 +1,5 @@
 package net.kunmc.lab.vplayer.common.util;
 
-import net.kunmc.lab.vplayer.ProxyServer;
 import net.md_5.bungee.api.chat.BaseComponent;
 import net.md_5.bungee.api.chat.ComponentBuilder;
 import org.bukkit.Location;
@@ -18,7 +17,7 @@ public class VUtils {
     }
 
     public static CommandSender getSender(Object source) {
-        return ProxyServer.getCommodore().getBukkitSender(source);
+        return null;//ProxyServer.getCommodore().getBukkitSender(source);
     }
 
     public static Location getLocation(CommandSender sender) {

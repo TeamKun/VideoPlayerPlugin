@@ -33,27 +33,22 @@
                 <version>3.2.4</version>
                 <executions>
                     <execution>
+                        <id>shade</id>
                         <phase>package</phase>
                         <goals>
                             <goal>shade</goal>
                         </goals>
-                        <configuration>
-                            <createDependencyReducedPom>false</createDependencyReducedPom>
-                            <artifactSet>
-                                <includes>
-                                    <include>me.lucko:commodore</include>
-                                </includes>
-                            </artifactSet>
-                            <relocations>
-                                <relocation>
-                                    <pattern>me.lucko.commodore</pattern>
-                                    <!-- vvv Replace with the package of your plugin vvv -->
-                                    <shadedPattern>net.kunmc.lab.vplayer.lib.commodore</shadedPattern>
-                                </relocation>
-                            </relocations>
-                        </configuration>
                     </execution>
                 </executions>
+                <configuration>
+                    <relocations>
+                        <relocation>
+                            <pattern>dev.jorel.commandapi-shade</pattern>
+                            <!-- vvv Replace with the package of your plugin vvv -->
+                            <shadedPattern>net.kunmc.lab.vplayer.lib.commandapi</shadedPattern>
+                        </relocation>
+                    </relocations>
+                </configuration>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -101,6 +96,10 @@
             <id>minecraft-repo</id>
             <url>https://libraries.minecraft.net/</url>
         </repository>
+        <repository>
+            <id>commandapi</id>
+            <url>https://raw.githubusercontent.com/JorelAli/CommandAPI/mvn-repo/</url>
+        </repository>
     </repositories>
 
     <dependencies>
@@ -111,10 +110,14 @@
             <scope>provided</scope>
         </dependency>
         <dependency>
-            <groupId>me.lucko</groupId>
-            <artifactId>commodore</artifactId>
-            <version>1.9</version>
-            <scope>compile</scope>
+            <groupId>com.mojang</groupId>
+            <artifactId>brigadier</artifactId>
+            <version>1.0.17</version>
+        </dependency>
+        <dependency>
+            <groupId>dev.jorel</groupId>
+            <artifactId>commandapi-shade</artifactId>
+            <version>5.6</version>
         </dependency>
     </dependencies>
 </project>
