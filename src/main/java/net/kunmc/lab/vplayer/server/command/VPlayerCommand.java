@@ -2,6 +2,7 @@ package net.kunmc.lab.vplayer.server.command;
 
 import com.google.common.base.Strings;
 import com.mojang.brigadier.Command;
+import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.BoolArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
@@ -14,16 +15,12 @@ import net.kunmc.lab.vplayer.common.util.VUtils;
 import net.kunmc.lab.vplayer.common.video.VDisplay;
 import net.kunmc.lab.vplayer.server.video.VDisplayManagerServer;
 import net.md_5.bungee.api.ChatColor;
-import net.md_5.bungee.api.chat.BaseComponent;
-import net.md_5.bungee.api.chat.ClickEvent;
-import net.md_5.bungee.api.chat.ComponentBuilder;
-import net.md_5.bungee.api.chat.HoverEvent;
+import net.md_5.bungee.api.chat.*;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.command.BlockCommandSender;
 import org.bukkit.command.CommandException;
 import org.bukkit.command.CommandSender;
-import org.bukkit.command.PluginCommand;
 import org.bukkit.entity.Entity;
 import org.bukkit.util.BlockVector;
 import org.bukkit.util.Vector;
@@ -31,11 +28,10 @@ import org.bukkit.util.Vector;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Optional;
-import java.util.function.Function;
 
 public class VPlayerCommand {
-    public static void register(Function<String, PluginCommand> commandSupplier) {
-        ProxyServer.getCommodore().register(commandSupplier.apply("vdisplay"),
+    public static void register(CommandDispatcher<Object> dispatcher) {
+        dispatcher.register(
                 LiteralArgumentBuilder.literal("vdisplay")
                         .then(LiteralArgumentBuilder.literal("list")
                                 .executes(ctx -> {
@@ -43,7 +39,7 @@ public class VPlayerCommand {
 
                                     BaseComponent[] component = state.listNames().stream()
                                             .map(msg -> {
-                                                ComponentBuilder text = new ComponentBuilder(msg);
+                                                ComponentBuilder text = new ComponentBuilder(msg).color(ChatColor.GREEN);
                                                 Optional.ofNullable(state.get(msg))
                                                         .map(Display::getQuad)
                                                         .ifPresent(e -> {
@@ -59,13 +55,13 @@ public class VPlayerCommand {
                                                         });
                                                 return text.create();
                                             })
-                                            .collect(VUtils.joining(new ComponentBuilder(", ").create()));
+                                            .collect(VUtils.joining(new ComponentBuilder(", ").color(ChatColor.WHITE).create()));
 
-                                    CommandSender sender = VUtils.getSender(ctx.getSource());
+                                    CommandSender sender = VUtils.getSender(ctx);
                                     sender.sendMessage(
                                             new ComponentBuilder().color(ChatColor.GREEN)
                                                     .append(new ComponentBuilder("[かめすたMod] ").color(ChatColor.LIGHT_PURPLE).create())
-                                                    .append(component)
+                                                    .append(new TextComponent(component))
                                                     .create()
                                     );
 
@@ -80,7 +76,7 @@ public class VPlayerCommand {
                                             VDisplayManagerServer state = ProxyServer.getDisplayManager();
                                             VDisplay display = state.create(name);
 
-                                            Location location = VUtils.getLocation(VUtils.getSender(ctx.getSource()));
+                                            Location location = VUtils.getLocation(VUtils.getSender(ctx));
                                             if (location != null)
                                                 state.setQuad(name, getQuad(ctx, display.getQuad(), location.toVector(), null, true, .1));
 
@@ -113,7 +109,7 @@ public class VPlayerCommand {
                                                     if (display == null)
                                                         throw new CommandException("ディスプレイが見つかりません。");
 
-                                                    Location location = VUtils.getLocation(VUtils.getSender(ctx.getSource()));
+                                                    Location location = VUtils.getLocation(VUtils.getSender(ctx));
                                                     if (location != null)
                                                         state.setQuad(name, getQuad(ctx, display.getQuad(), location.toVector(), null, true, .1));
 
@@ -130,7 +126,7 @@ public class VPlayerCommand {
                                                             if (display == null)
                                                                 throw new CommandException("ディスプレイが見つかりません。");
 
-                                                            Location eyeLocation = VUtils.getEyeLocation(VUtils.getSender(ctx.getSource()));
+                                                            Location eyeLocation = VUtils.getEyeLocation(VUtils.getSender(ctx));
                                                             if (eyeLocation != null)
                                                                 state.setQuad(name, getQuad(ctx, display.getQuad(), pos.getPosition(eyeLocation), null, false, .1));
 
@@ -148,7 +144,7 @@ public class VPlayerCommand {
                                                     if (display == null)
                                                         throw new CommandException("ディスプレイが見つかりません。");
 
-                                                    Location location = VUtils.getLocation(VUtils.getSender(ctx.getSource()));
+                                                    Location location = VUtils.getLocation(VUtils.getSender(ctx));
                                                     if (location != null)
                                                         state.setQuad(name, getQuad(ctx, display.getQuad(), null, location.toVector(), true, .1));
 
@@ -165,7 +161,7 @@ public class VPlayerCommand {
                                                             if (display == null)
                                                                 throw new CommandException("ディスプレイが見つかりません。");
 
-                                                            Location eyeLocation = VUtils.getEyeLocation(VUtils.getSender(ctx.getSource()));
+                                                            Location eyeLocation = VUtils.getEyeLocation(VUtils.getSender(ctx));
                                                             if (eyeLocation != null)
                                                                 state.setQuad(name, getQuad(ctx, display.getQuad(), null, pos.getPosition(eyeLocation), false, .1));
 
@@ -177,7 +173,7 @@ public class VPlayerCommand {
 
                         )
         );
-        ProxyServer.getCommodore().register(commandSupplier.apply("vplayer"),
+        dispatcher.register(
                 LiteralArgumentBuilder.literal("vplayer")
                         .then(name()
                                 .then(LiteralArgumentBuilder.literal("video")
@@ -190,7 +186,7 @@ public class VPlayerCommand {
                                             if (display == null)
                                                 throw new CommandException("ディスプレイが見つかりません。");
 
-                                            CommandSender sender = VUtils.getSender(ctx.getSource());
+                                            CommandSender sender = VUtils.getSender(ctx);
                                             sender.sendMessage(
                                                     new ComponentBuilder().color(ChatColor.GREEN)
                                                             .append(new ComponentBuilder("[かめすたMod] ").color(ChatColor.LIGHT_PURPLE).create())
@@ -329,7 +325,7 @@ public class VPlayerCommand {
 
     @Nonnull
     public static Quad getQuad(CommandContext<Object> context, @Nullable Quad prev, @Nullable Vector pos1, @Nullable Vector pos2, boolean align, double padding) {
-        CommandSender sender = VUtils.getSender(context.getSource());
+        CommandSender sender = VUtils.getSender(context);
 
         Location location = (sender instanceof Entity)
                 ? ((Entity) sender).getLocation()

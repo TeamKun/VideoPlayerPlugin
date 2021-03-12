@@ -8,7 +8,6 @@ import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.brigadier.exceptions.SimpleCommandExceptionType;
 import com.mojang.brigadier.suggestion.Suggestions;
 import com.mojang.brigadier.suggestion.SuggestionsBuilder;
-import net.kunmc.lab.vplayer.VideoPlayer;
 import net.kunmc.lab.vplayer.common.util.VUtils;
 import org.bukkit.command.CommandSender;
 import org.bukkit.util.Vector;
@@ -36,7 +35,7 @@ public class Vec3Argument implements ArgumentType<ILocationArgument> {
     }
 
     public static Vector getVec3(CommandContext<Object> context, String name) throws CommandSyntaxException {
-        CommandSender sender = VUtils.getSender(context.getSource());
+        CommandSender sender = VUtils.getSender(context);
         return context.getArgument(name, ILocationArgument.class).getPosition(VUtils.getEyeLocation(sender));
     }
 

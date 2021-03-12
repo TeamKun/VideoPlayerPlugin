@@ -1,5 +1,6 @@
 package net.kunmc.lab.vplayer;
 
+import dev.jorel.commandapi.Brigadier;
 import dev.jorel.commandapi.CommandAPI;
 import net.kunmc.lab.vplayer.server.command.VPlayerCommand;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -19,7 +20,7 @@ public class VideoPlayer extends JavaPlugin {
     public void onLoad() {
         CommandAPI.onLoad(true); //Load with verbose output
 
-        VPlayerCommand.register();
+        VPlayerCommand.register(Brigadier.getCommandDispatcher());
     }
 
     @Override

@@ -1,5 +1,7 @@
 package net.kunmc.lab.vplayer.common.util;
 
+import com.mojang.brigadier.context.CommandContext;
+import dev.jorel.commandapi.CommandAPIHandler;
 import net.md_5.bungee.api.chat.BaseComponent;
 import net.md_5.bungee.api.chat.ComponentBuilder;
 import org.bukkit.Location;
@@ -16,8 +18,8 @@ public class VUtils {
         return Math.min(Math.max(value, min), max);
     }
 
-    public static CommandSender getSender(Object source) {
-        return null;//ProxyServer.getCommodore().getBukkitSender(source);
+    public static CommandSender getSender(CommandContext<?> ctx) {
+        return CommandAPIHandler.getInstance().getNMS().getSenderForCommand((CommandContext) ctx, false);
     }
 
     public static Location getLocation(CommandSender sender) {
