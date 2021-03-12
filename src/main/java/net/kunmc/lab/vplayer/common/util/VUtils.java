@@ -1,7 +1,9 @@
 package net.kunmc.lab.vplayer.common.util;
 
 import com.mojang.brigadier.context.CommandContext;
+import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import dev.jorel.commandapi.CommandAPIHandler;
+import dev.jorel.commandapi.arguments.LocationType;
 import net.md_5.bungee.api.chat.BaseComponent;
 import net.md_5.bungee.api.chat.ComponentBuilder;
 import org.bukkit.Location;
@@ -20,6 +22,10 @@ public class VUtils {
 
     public static CommandSender getSender(CommandContext<?> ctx) {
         return CommandAPIHandler.getInstance().getNMS().getSenderForCommand((CommandContext) ctx, false);
+    }
+
+    public static Location getLocation(CommandContext<?> ctx, String s, LocationType locationType) throws CommandSyntaxException {
+        return CommandAPIHandler.getInstance().getNMS().getLocation((CommandContext) ctx, s, locationType);
     }
 
     public static Location getLocation(CommandSender sender) {

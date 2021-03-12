@@ -3,11 +3,14 @@ package net.kunmc.lab.vplayer.server.command;
 import com.google.common.base.Strings;
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.CommandDispatcher;
+import com.mojang.brigadier.arguments.ArgumentType;
 import com.mojang.brigadier.arguments.BoolArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.builder.RequiredArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
+import dev.jorel.commandapi.arguments.LocationArgument;
+import dev.jorel.commandapi.arguments.LocationType;
 import net.kunmc.lab.vplayer.ProxyServer;
 import net.kunmc.lab.vplayer.common.model.Display;
 import net.kunmc.lab.vplayer.common.model.Quad;
@@ -31,6 +34,7 @@ import java.util.Optional;
 
 public class VPlayerCommand {
     public static void register(CommandDispatcher<Object> dispatcher) {
+        ArgumentType<?> locType = new LocationArgument("pos").getRawType();
         dispatcher.register(
                 LiteralArgumentBuilder.literal("vdisplay")
                         .then(LiteralArgumentBuilder.literal("list")
@@ -115,10 +119,10 @@ public class VPlayerCommand {
 
                                                     return Command.SINGLE_SUCCESS;
                                                 })
-                                                .then(RequiredArgumentBuilder.argument("pos", Vec3Argument.vec3())
+                                                .then(RequiredArgumentBuilder.argument("pos", locType)
                                                         .executes(ctx -> {
                                                             String name = StringArgumentType.getString(ctx, "name");
-                                                            ILocationArgument pos = Vec3Argument.getLocation(ctx, "pos");
+                                                            Location pos = VUtils.getLocation(ctx, "pos", LocationType.PRECISE_POSITION);
 
                                                             VDisplayManagerServer state = ProxyServer.getDisplayManager();
 
@@ -126,9 +130,7 @@ public class VPlayerCommand {
                                                             if (display == null)
                                                                 throw new CommandException("ディスプレイが見つかりません。");
 
-                                                            Location eyeLocation = VUtils.getEyeLocation(VUtils.getSender(ctx));
-                                                            if (eyeLocation != null)
-                                                                state.setQuad(name, getQuad(ctx, display.getQuad(), pos.getPosition(eyeLocation), null, false, .1));
+                                                            state.setQuad(name, getQuad(ctx, display.getQuad(), pos.toVector(), null, false, .1));
 
                                                             return Command.SINGLE_SUCCESS;
                                                         })
@@ -150,10 +152,10 @@ public class VPlayerCommand {
 
                                                     return Command.SINGLE_SUCCESS;
                                                 })
-                                                .then(RequiredArgumentBuilder.argument("pos", Vec3Argument.vec3())
+                                                .then(RequiredArgumentBuilder.argument("pos", locType)
                                                         .executes(ctx -> {
                                                             String name = StringArgumentType.getString(ctx, "name");
-                                                            ILocationArgument pos = Vec3Argument.getLocation(ctx, "pos");
+                                                            Location pos = VUtils.getLocation(ctx, "pos", LocationType.PRECISE_POSITION);
 
                                                             VDisplayManagerServer state = ProxyServer.getDisplayManager();
 
@@ -161,9 +163,7 @@ public class VPlayerCommand {
                                                             if (display == null)
                                                                 throw new CommandException("ディスプレイが見つかりません。");
 
-                                                            Location eyeLocation = VUtils.getEyeLocation(VUtils.getSender(ctx));
-                                                            if (eyeLocation != null)
-                                                                state.setQuad(name, getQuad(ctx, display.getQuad(), null, pos.getPosition(eyeLocation), false, .1));
+                                                            state.setQuad(name, getQuad(ctx, display.getQuad(), null, pos.toVector(), false, .1));
 
                                                             return Command.SINGLE_SUCCESS;
                                                         })

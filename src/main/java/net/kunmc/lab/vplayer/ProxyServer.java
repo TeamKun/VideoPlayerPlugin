@@ -15,12 +15,14 @@ import org.bukkit.Server;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
-import org.bukkit.event.player.PlayerLoginEvent;
+import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.world.WorldSaveEvent;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitRunnable;
 
+import java.io.File;
+import java.util.Collections;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -29,6 +31,7 @@ import java.util.stream.Collectors;
 
 public class ProxyServer implements Listener {
 
+    private static Plugin plugin;
     private static Server server;
 
     private static VDisplayManagerServer displayManager;
@@ -57,11 +60,29 @@ public class ProxyServer implements Listener {
         PacketDispatcherServer.register(plugin);
     }
 
-    public void onServerStart(JavaPlugin plugin) {
+    public void onServerStart(JavaPlugin pluginIn) {
+        plugin = pluginIn;
         server = plugin.getServer();
 
-        displayManager = VDisplayManagerServer.get(plugin.getDataFolder());
+        File dataFolder = plugin.getDataFolder();
+        dataFolder.mkdirs();
+        displayManager = VDisplayManagerServer.get(dataFolder);
         displayManager.read();
+
+        PacketContainer packet = new PacketContainer(VideoPatchOperation.SYNC, displayManager.list().stream()
+                .map(e -> new VideoPatch(e.getUUID(), e.getQuad(), e.fetchState()))
+                .collect(Collectors.toList())
+        );
+        getServer().getOnlinePlayers()
+                .forEach(p -> PacketDispatcherServer.send(p, packet));
+    }
+
+    public void onServerClose() {
+        getDisplayManager().write();
+
+        PacketContainer packet = new PacketContainer(VideoPatchOperation.SYNC, Collections.emptyList());
+        getServer().getOnlinePlayers()
+                .forEach(p -> PacketDispatcherServer.send(p, packet));
     }
 
     @EventHandler
@@ -74,12 +95,17 @@ public class ProxyServer implements Listener {
     }
 
     @EventHandler
-    public void onLogin(PlayerLoginEvent event) {
+    public void onJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();
-        VDisplayManagerServer state = getDisplayManager();
-        PacketContainer packet = new PacketContainer(VideoPatchOperation.SYNC, state.list().stream()
-                .map(p -> new VideoPatch(p.getUUID(), p.getQuad(), p.fetchState())).collect(Collectors.toList()));
-        PacketDispatcherServer.send(player, packet);
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                VDisplayManagerServer state = getDisplayManager();
+                PacketContainer packet = new PacketContainer(VideoPatchOperation.SYNC, state.list().stream()
+                        .map(p -> new VideoPatch(p.getUUID(), p.getQuad(), p.fetchState())).collect(Collectors.toList()));
+                PacketDispatcherServer.send(player, packet);
+            }
+        }.runTaskLaterAsynchronously(plugin, 10);
     }
 
     @EventHandler
