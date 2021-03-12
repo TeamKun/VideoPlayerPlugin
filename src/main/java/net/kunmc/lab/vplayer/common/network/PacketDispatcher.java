@@ -1,6 +1,7 @@
 package net.kunmc.lab.vplayer.common.network;
 
 import net.kunmc.lab.vplayer.VideoPlayer;
+import net.kunmc.lab.vplayer.common.util.PacketBuffer;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 
@@ -17,13 +18,14 @@ public class PacketDispatcher {
     public static class SimpleChannel<MSG> {
         private final String channel;
         private Plugin plugin;
-        private Function<MSG, byte[]> encoder;
+        private BiConsumer<MSG, PacketBuffer> encoder;
+        private final PacketBuffer buf = new PacketBuffer();
 
         public SimpleChannel(String channel) {
             this.channel = channel;
         }
 
-        public void registerMessage(Plugin pluginIn, Function<MSG, byte[]> encoderIn, Function<byte[], MSG> decoderIn, BiConsumer<MSG, Player> messageConsumerIn) {
+        public void registerMessage(Plugin pluginIn, BiConsumer<MSG, PacketBuffer> encoderIn, Function<PacketBuffer, MSG> decoderIn, BiConsumer<MSG, Player> messageConsumerIn) {
             plugin = pluginIn;
             encoder = encoderIn;
 
@@ -31,13 +33,17 @@ public class PacketDispatcher {
             plugin.getServer().getMessenger().registerIncomingPluginChannel(plugin, channel, (channelIn, playerIn, messageIn) -> {
                 if (!channel.equals(channelIn))
                     return;
-                MSG msg = decoderIn.apply(messageIn);
+                buf.readByte();
+                buf.fromBytes(messageIn);
+                MSG msg = decoderIn.apply(buf);
                 messageConsumerIn.accept(msg, playerIn);
             });
         }
 
         public void sendTo(MSG messageIn, Player playerIn) {
-            playerIn.sendPluginMessage(plugin, channel, encoder.apply(messageIn));
+            buf.writeByte(0);
+            encoder.accept(messageIn, buf);
+            playerIn.sendPluginMessage(plugin, channel, buf.toBytes());
         }
     }
 
