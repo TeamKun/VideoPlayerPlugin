@@ -2,6 +2,7 @@ package net.kunmc.lab.vplayer;
 
 import com.google.common.collect.HashBasedTable;
 import com.google.common.collect.Table;
+import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import me.lucko.commodore.Commodore;
 import me.lucko.commodore.CommodoreProvider;
 import net.kunmc.lab.vplayer.common.model.PlayState;
@@ -15,14 +16,19 @@ import net.kunmc.lab.vplayer.server.patch.VideoPatchRecieveEventServer;
 import net.kunmc.lab.vplayer.server.patch.VideoPatchSendEventServer;
 import net.kunmc.lab.vplayer.server.video.VDisplayManagerServer;
 import org.bukkit.Server;
+import org.bukkit.command.Command;
+import org.bukkit.command.CommandException;
+import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerLoginEvent;
+import org.bukkit.event.world.WorldSaveEvent;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitRunnable;
 
+import javax.annotation.Nonnull;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -68,6 +74,9 @@ public class ProxyServer implements Listener {
     public void onServerStart(JavaPlugin plugin) {
         server = plugin.getServer();
 
+        displayManager = VDisplayManagerServer.get(plugin.getDataFolder());
+        displayManager.read();
+
         // check if brigadier is supported
         if (CommodoreProvider.isSupported()) {
             // get a commodore instance
@@ -75,6 +84,22 @@ public class ProxyServer implements Listener {
             // register your completions.
             VPlayerCommand.register(plugin::getCommand);
         }
+    }
+
+    public boolean onCommand(@Nonnull CommandSender sender, @Nonnull Command command, @Nonnull String label, @Nonnull String[] args) {
+        if (commodore == null)
+            return true;
+
+        try {
+            return commodore.getDispatcher().execute(command.getName() + " " + String.join(" ", args), sender) == 1;
+        } catch (CommandSyntaxException e) {
+            throw new CommandException("Command Error", e);
+        }
+    }
+
+    @EventHandler
+    public void onWorldSave(WorldSaveEvent event) {
+        getDisplayManager().write();
     }
 
     public void onTick() {
