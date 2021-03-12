@@ -33,14 +33,16 @@ public class PacketDispatcher {
             plugin.getServer().getMessenger().registerIncomingPluginChannel(plugin, channel, (channelIn, playerIn, messageIn) -> {
                 if (!channel.equals(channelIn))
                     return;
-                buf.readByte();
                 buf.fromBytes(messageIn);
+                byte codec = buf.readByte();
                 MSG msg = decoderIn.apply(buf);
                 messageConsumerIn.accept(msg, playerIn);
+                buf.clear();
             });
         }
 
         public void sendTo(MSG messageIn, Player playerIn) {
+            buf.clear();
             buf.writeByte(0);
             encoder.accept(messageIn, buf);
             playerIn.sendPluginMessage(plugin, channel, buf.toBytes());

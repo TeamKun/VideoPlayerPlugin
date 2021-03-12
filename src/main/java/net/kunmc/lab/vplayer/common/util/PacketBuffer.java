@@ -19,6 +19,10 @@ public class PacketBuffer {
         this(maxLength);
     }
 
+    public void clear() {
+        buf.clear();
+    }
+
     public void fromBytes(byte[] bytes) {
         buf.clear();
         buf.put(bytes);
@@ -85,7 +89,7 @@ public class PacketBuffer {
         } else if (i < 0) {
             throw new RuntimeException("The received encoded string buffer length is less than zero! Weird string!");
         } else {
-            byte[] bytes = new byte[i - buf.position()];
+            byte[] bytes = new byte[i];
             buf.get(bytes, 0, i);
             String s = new String(bytes, StandardCharsets.UTF_8);
             if (s.length() > maxLength) {

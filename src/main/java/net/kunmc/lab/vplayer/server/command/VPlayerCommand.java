@@ -351,9 +351,9 @@ public class VPlayerCommand {
                 pos2 = prev.vertices[2];
         } else {
             if (pos1 == null)
-                pos1 = pos2.subtract(new Vector(16, -9, 0));
+                pos1 = pos2.clone().subtract(new Vector(16, -9, 0));
             else if (pos2 == null)
-                pos2 = pos1.add(new Vector(16, -9, 0));
+                pos2 = pos1.clone().add(new Vector(16, -9, 0));
         }
 
         double offset = .01;
@@ -367,16 +367,16 @@ public class VPlayerCommand {
 
             BlockVector b1 = pos1.toBlockVector();
             BlockVector b2 = pos2.toBlockVector();
-            if (b1.getX() == b2.getX()) {
+            if (b1.getBlockX() == b2.getBlockX()) {
                 if (pos1.getZ() > pos2.getZ())
-                    p1x = p2x = b1.getX() + offset;
+                    p1x = p2x = b1.getBlockX() + offset;
                 else
-                    p1x = p2x = b1.getX() + (1 - offset);
-            } else if (b1.getZ() == b2.getZ()) {
+                    p1x = p2x = b1.getBlockX() + (1 - offset);
+            } else if (b1.getBlockZ() == b2.getBlockZ()) {
                 if (pos1.getX() < pos2.getX())
-                    p1z = p2z = b1.getZ() + offset;
+                    p1z = p2z = b1.getBlockZ() + offset;
                 else
-                    p1z = p2z = b1.getZ() + (1 - offset);
+                    p1z = p2z = b1.getBlockZ() + (1 - offset);
             }
 
             pos1 = new Vector(p1x, p1y, p1z);
