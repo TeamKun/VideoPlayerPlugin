@@ -36,13 +36,6 @@ public class VideoPlayer extends JavaPlugin implements Listener {
             LOGGER.info("Successfully registered VTimeArgument");
         });
 
-        new CommandAPICommand("a")
-                .withArguments(new LocationArgument("loc"))
-                .executes((sender, args) -> {
-                    Location loc = (Location) args[0];
-                })
-                .register();
-
         VPlayerCommand.register(Brigadier.getCommandDispatcher());
     }
 
