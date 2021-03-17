@@ -2,12 +2,8 @@ package net.kunmc.lab.vplayer;
 
 import dev.jorel.commandapi.Brigadier;
 import dev.jorel.commandapi.CommandAPI;
-import dev.jorel.commandapi.CommandAPICommand;
-import dev.jorel.commandapi.arguments.LocationArgument;
-import net.kunmc.lab.vplayer.common.util.VNMS;
 import net.kunmc.lab.vplayer.server.command.VPlayerCommand;
 import net.kunmc.lab.vplayer.server.command.VTimeArgumentType;
-import org.bukkit.Location;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.server.PluginDisableEvent;
@@ -30,11 +26,6 @@ public class VideoPlayer extends JavaPlugin implements Listener {
         LOGGER = getLogger();
 
         CommandAPI.onLoad(true); //Load with verbose output
-
-        Optional.ofNullable(VNMS.getNMS()).ifPresent(e -> {
-            e.register(MODID + ":vtime", VTimeArgumentType.class, VTimeArgumentType::timeArg);
-            LOGGER.info("Successfully registered VTimeArgument");
-        });
 
         VPlayerCommand.register(Brigadier.getCommandDispatcher());
     }
