@@ -3,6 +3,7 @@ package net.kunmc.lab.vplayer.server.command;
 import com.google.common.base.Strings;
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.CommandDispatcher;
+import com.mojang.brigadier.StringReader;
 import com.mojang.brigadier.arguments.ArgumentType;
 import com.mojang.brigadier.arguments.BoolArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
@@ -35,6 +36,7 @@ import java.util.Optional;
 public class VPlayerCommand {
     public static void register(CommandDispatcher<Object> dispatcher) {
         ArgumentType<?> locType = new LocationArgument("pos").getRawType();
+        VTimeArgumentType vtime = VTimeArgumentType.timeArg();
         dispatcher.register(
                 LiteralArgumentBuilder.literal("vdisplay")
                         .then(LiteralArgumentBuilder.literal("list")
@@ -285,10 +287,11 @@ public class VPlayerCommand {
                                         })
                                 )
                                 .then(LiteralArgumentBuilder.literal("seek")
-                                        .then(RequiredArgumentBuilder.argument("time", VTimeArgumentType.timeArg())
+                                        .then(RequiredArgumentBuilder.argument("time", StringArgumentType.greedyString())
+                                                .suggests(vtime::listSuggestions)
                                                 .executes(ctx -> {
                                                     String name = StringArgumentType.getString(ctx, "name");
-                                                    VTimeArgumentType.VTime time = VTimeArgumentType.getTime(ctx, "time");
+                                                    VTimeArgumentType.VTime time = vtime.parse(new StringReader(StringArgumentType.getString(ctx, "time")));
 
                                                     VDisplayManagerServer state = ProxyServer.getDisplayManager();
                                                     state.dispatchState(name, s -> {
@@ -304,10 +307,11 @@ public class VPlayerCommand {
                                         )
                                 )
                                 .then(LiteralArgumentBuilder.literal("time")
-                                        .then(RequiredArgumentBuilder.argument("time", VTimeArgumentType.timeArg())
+                                        .then(RequiredArgumentBuilder.argument("time", StringArgumentType.greedyString())
+                                                .suggests(vtime::listSuggestions)
                                                 .executes(ctx -> {
                                                     String name = StringArgumentType.getString(ctx, "name");
-                                                    VTimeArgumentType.VTime time = VTimeArgumentType.getTime(ctx, "time");
+                                                    VTimeArgumentType.VTime time = vtime.parse(new StringReader(StringArgumentType.getString(ctx, "time")));
 
                                                     VDisplayManagerServer state = ProxyServer.getDisplayManager();
                                                     state.dispatchState(name, s -> {
