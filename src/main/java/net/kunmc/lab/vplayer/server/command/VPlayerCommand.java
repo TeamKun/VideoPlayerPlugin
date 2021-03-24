@@ -296,7 +296,7 @@ public class VPlayerCommand {
                                                     VDisplayManagerServer state = ProxyServer.getDisplayManager();
                                                     state.dispatchState(name, s -> {
                                                         if (s.duration > 0)
-                                                            s.time = VUtils.clamp(s.time, 0, s.duration) + VUtils.clamp(time.getTime(s.duration), 0, s.duration);
+                                                            s.time = VUtils.clamp(VUtils.clamp(s.time, 0, s.duration) + time.getTime(s.duration), 0, s.duration);
                                                         else
                                                             s.time += time.getTime(s.duration);
                                                         return s;
