@@ -105,7 +105,7 @@ public class ProxyServer implements Listener {
                         .map(p -> new VideoPatch(p.getUUID(), p.getQuad(), p.fetchState())).collect(Collectors.toList()));
                 PacketDispatcherServer.send(player, packet);
             }
-        }.runTaskLaterAsynchronously(plugin, 10);
+        }.runTaskLaterAsynchronously(plugin, 40);
     }
 
     @EventHandler
