@@ -43,7 +43,7 @@
                 <configuration>
                     <relocations>
                         <relocation>
-                            <pattern>dev.jorel.commandapi-shade</pattern>
+                            <pattern>dev.jorel.commandapi</pattern>
                             <!-- vvv Replace with the package of your plugin vvv -->
                             <shadedPattern>net.kunmc.lab.vplayer.lib.commandapi</shadedPattern>
                         </relocation>
