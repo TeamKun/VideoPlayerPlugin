@@ -198,7 +198,7 @@ public class VPlayerCommand {
 
                                             return Command.SINGLE_SUCCESS;
                                         })
-                                        .then(RequiredArgumentBuilder.argument("url", StringArgumentType.string())
+                                        .then(RequiredArgumentBuilder.argument("url", StringArgumentType.greedyString())
                                                 .executes(ctx -> {
                                                     String name = StringArgumentType.getString(ctx, "name");
                                                     String url = StringArgumentType.getString(ctx, "url");
@@ -228,7 +228,7 @@ public class VPlayerCommand {
 
                                             return Command.SINGLE_SUCCESS;
                                         })
-                                        .then(RequiredArgumentBuilder.argument("url", StringArgumentType.string())
+                                        .then(RequiredArgumentBuilder.argument("url", StringArgumentType.greedyString())
                                                 .executes(ctx -> {
                                                     String name = StringArgumentType.getString(ctx, "name");
                                                     String url = StringArgumentType.getString(ctx, "url");
