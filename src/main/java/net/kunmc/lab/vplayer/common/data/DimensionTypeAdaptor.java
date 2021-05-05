@@ -18,8 +18,19 @@ public class DimensionTypeAdaptor extends TypeAdapter<World.Environment> {
     @Override
     public World.Environment read(JsonReader in) throws IOException {
         in.beginObject();
-        in.nextName();
-        int id = in.nextInt();
+        String name = null;
+        int id = 0;
+        while (in.hasNext()) {
+            String type = in.nextName();
+            switch (type) {
+                case "name":
+                    name = in.nextString();
+                    break;
+                case "id":
+                    id = in.nextInt();
+                    break;
+            }
+        }
         in.endObject();
         return World.Environment.getEnvironment(id);
     }
